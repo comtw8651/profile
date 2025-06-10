@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人檔案設定頁面</title>
+    <style>
+        /* 簡單的 CSS 樣式，無特別排版 */
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .section { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        h2 { color: #333; }
+        img { max-width: 150px; max-height: 150px; border-radius: 5px; margin-top: 10px; display: block; }
+        button { padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px; }
+        button:hover { background-color: #0056b3; }
+        input[type="file"], input[type="text"], select { margin-top: 5px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: calc(100% - 18px); box-sizing: border-box; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .current-button-style {
+            padding: 10px 20px;
+            border: 1px solid #ccc;
+            background-color: lightgray;
+            color: black;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>我的個人檔案</h1>
+        <p>此頁面假設使用者 ID 為 **1**。實際應用中應從登入狀態獲取。</p>
+
+        <div class="section" id="profile-display">
+            <h2>當前設定</h2>
+            <p>背景圖片: <br><img id="current-background-image" src="" alt="背景圖片"></p>
+            <p>頭像: <br><img id="current-avatar" src="" alt="頭像"></p>
+            <p>按鈕樣式預覽: <span id="current-button-style-preview" class="current-button-style">範例按鈕</span></p>
+            <p>當前主題: <span id="current-theme-name">載入中...</span></p>
+        </div>
+
+        <hr>
+
+        <div class="section">
+            <h2>上傳背景圖片</h2>
+            <form id="background-image-form">
+                <label for="background-image-input">選擇圖片:</label>
+                <input type="file" id="background-image-input" name="file" accept="image/*">
+                <button type="submit">上傳背景圖片</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>上傳頭像</h2>
+            <form id="avatar-form">
+                <label for="avatar-input">選擇圖片:</label>
+                <input type="file" id="avatar-input" name="file" accept="image/*">
+                <button type="submit">上傳頭像</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>更新按鈕樣式</h2>
+            <form id="button-style-form">
+                <label for="button-style-input">自訂按鈕樣式 (CSS 字串，例如: "background-color: red; color: white;"):</label>
+                <input type="text" id="button-style-input" placeholder="例如: background-color: blue; border-radius: 10px;">
+                <button type="submit">更新按鈕樣式</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>切換主題</h2>
+            <form id="theme-form">
+                <label for="theme-select">選擇主題:</label>
+                <select id="theme-select">
+                    </select>
+                <button type="submit">應用主題</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8080/api/profile';
+        const USER_ID = 1; // **重要：在實際應用中，這個 ID 應該從登入狀態獲取！**
+
+        // 獲取 DOM 元素
+        const currentBackgroundImage = document.getElementById('current-background-image');
+        const currentAvatar = document.getElementById('current-avatar');
+        const currentButtonStylePreview = document.getElementById('current-button-style-preview');
+        const currentThemeName = document.getElementById('current-theme-name');
+        const themeSelect = document.getElementById('theme-select');
+
+        // --- 載入個人檔案與主題 ---
+        async function loadProfileAndThemes() {
+            try {
+                // 載入個人檔案
+                const profileResponse = await fetch(`${API_BASE_URL}/${USER_ID}`);
+                if (profileResponse.ok) {
+                    const profile = await profileResponse.json();
+                    updateProfileDisplay(profile);
+                } else {
+                    console.error('載入個人檔案失敗:', profileResponse.statusText);
+                    // 如果個人檔案不存在，可以呼叫初始化 API
+                    if (profileResponse.status === 404) {
+                        console.log('個人檔案不存在，嘗試初始化...');
+                        await initializeUserProfile();
+                    }
+                }
+
+                // 載入主題列表
+                const themesResponse = await fetch(`${API_BASE_URL}/themes`);
+                if (themesResponse.ok) {
+                    const themes = await themesResponse.json();
+                    populateThemeSelect(themes);
+                } else {
+                    console.error('載入主題列表失敗:', themesResponse.statusText);
+                }
+
+            } catch (error) {
+                console.error('網路請求錯誤:', error);
+            }
+        }
+
+        async function initializeUserProfile() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/${USER_ID}/initialize-profile`, {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    const profile = await response.json();
+                    alert('個人檔案已初始化成功！');
+                    updateProfileDisplay(profile);
+                } else {
+                    alert('個人檔案初始化失敗！');
+                    console.error('初始化失敗:', response.statusText);
+                }
+            } catch (error) {
+                console.error('初始化請求錯誤:', error);
+                alert('個人檔案初始化時發生網路錯誤！');
+            }
+        }
+
+        function updateProfileDisplay(profile) {
+            currentBackgroundImage.src = profile.backgroundImageUrl || '';
+            currentAvatar.src = profile.avatarUrl || '';
+            
+            // 應用自訂按鈕樣式
+            currentButtonStylePreview.style = profile.buttonStyleConfig || '';
+            currentButtonStylePreview.textContent = '範例按鈕 (' + (profile.buttonStyleConfig ? '自訂' : '預設') + ')';
+
+            currentThemeName.textContent = profile.currentTheme ? profile.currentTheme.themeName : '無';
+
+            // 確保圖片在沒有 URL 時不顯示錯誤圖示
+            currentBackgroundImage.alt = profile.backgroundImageUrl ? '背景圖片' : '無背景圖片';
+            currentAvatar.alt = profile.avatarUrl ? '頭像' : '無頭像';
+        }
+
+        function populateThemeSelect(themes) {
+            themeSelect.innerHTML = ''; // 清空現有選項
+            themes.forEach(theme => {
+                const option = document.createElement('option');
+                option.value = theme.id;
+                option.textContent = theme.themeName;
+                themeSelect.appendChild(option);
+            });
+        }
+
+        // --- 表單提交處理 ---
+
+        // 上傳背景圖片表單
+        document.getElementById('background-image-form').addEventListener('submit', async (event) => {
+            event.preventDefault(); // 阻止表單預設提交行為
+            const fileInput = document.getElementById('background-image-input');
+            if (fileInput.files.length === 0) {
+                alert('請選擇一個檔案！');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/${USER_ID}/background-image`, {
+                    method: 'POST',
+                    body: formData // 對於 MultipartFile，直接傳遞 FormData
+                });
+
+                if (response.ok) {
+                    const imageUrl = await response.text(); // 預期返回圖片 URL 字串
+                    currentBackgroundImage.src = imageUrl;
+                    alert('背景圖片上傳成功！');
+                } else {
+                    const errorText = await response.text();
+                    alert('背景圖片上傳失敗: ' + errorText);
+                    console.error('背景圖片上傳失敗:', response.status, errorText);
+                }
+            } catch (error) {
+                console.error('網路錯誤:', error);
+                alert('背景圖片上傳時發生網路錯誤！');
+            }
+        });
+
+        // 上傳頭像表單
+        document.getElementById('avatar-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const fileInput = document.getElementById('avatar-input');
+            if (fileInput.files.length === 0) {
+                alert('請選擇一個檔案！');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/${USER_ID}/avatar`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const imageUrl = await response.text();
+                    currentAvatar.src = imageUrl;
+                    alert('頭像上傳成功！');
+                } else {
+                    const errorText = await response.text();
+                    alert('頭像上傳失敗: ' + errorText);
+                    console.error('頭像上傳失敗:', response.status, errorText);
+                }
+            } catch (error) {
+                console.error('網路錯誤:', error);
+                alert('頭像上傳時發生網路錯誤！');
+            }
+        });
+
+        // 更新按鈕樣式表單
+        document.getElementById('button-style-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const styleInput = document.getElementById('button-style-input').value;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/${USER_ID}/button-style`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ buttonStyleConfig: styleInput })
+                });
+
+                if (response.ok) {
+                    const updatedProfile = await response.json();
+                    updateProfileDisplay(updatedProfile); // 更新顯示
+                    alert('按鈕樣式更新成功！');
+                } else {
+                    const errorText = await response.text();
+                    alert('按鈕樣式更新失敗: ' + errorText);
+                    console.error('按鈕樣式更新失敗:', response.status, errorText);
+                }
+            } catch (error) {
+                console.error('網路錯誤:', error);
+                alert('按鈕樣式更新時發生網路錯誤！');
+            }
+        });
+
+        // 切換主題表單
+        document.getElementById('theme-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const selectedThemeId = themeSelect.value;
+            if (!selectedThemeId) {
+                alert('請選擇一個主題！');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/${USER_ID}/theme`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ themeId: parseInt(selectedThemeId) }) // 確保是數字
+                });
+
+                if (response.ok) {
+                    const updatedProfile = await response.json();
+                    updateProfileDisplay(updatedProfile); // 更新顯示
+                    alert('主題切換成功！');
+                } else {
+                    const errorText = await response.text();
+                    alert('主題切換失敗: ' + errorText);
+                    console.error('主題切換失敗:', response.status, errorText);
+                }
+            } catch (error) {
+                console.error('網路錯誤:', error);
+                alert('主題切換時發生網路錯誤！');
+            }
+        });
+
+        // 頁面載入時執行
+        loadProfileAndThemes();
+    </script>
+</body>
+</html>
